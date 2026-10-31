@@ -183,7 +183,7 @@
 
             const startApp = async () => {
                 if (audioContext.state === 'suspended') {
-                    audioContext.resume()
+                    await audioContext.resume()
                 }
 
                 webpdNode = await WebPdRuntime.run(
@@ -193,15 +193,28 @@
                 )
                 webpdNode.connect(audioContext.destination)
 
-                // Send the preset values so the effect works right away
-                PARAMS.forEach((p) => sendMsgToWebPd(p.nodeId, '0', [p.value * p.scale]))
+                // The patch only becomes ready once the first audio block runs,
+                // so wait a moment before sending the presets.
+                setTimeout(sendAllParams, 300)
 
                 startButton.style.display = 'none'
                 controls.style.display = 'block'
             }
 
+            // Sends every slider's current value to the patch
+            const sendAllParams = () => {
+                PARAMS.forEach((p) => {
+                    const v = parseFloat(document.getElementById(p.id).value)
+                    sendMsgToWebPd(p.nodeId, '0', [v * p.scale])
+                })
+            }
+
             startButton.onclick = startApp
-            playButton.onclick = () => sendMsgToWebPd(PLAY_NODE, '0', ['bang'])
+            playButton.onclick = () => {
+                // Re-send the slider values first so the patch always matches what students see
+                sendAllParams()
+                sendMsgToWebPd(PLAY_NODE, '0', ['bang'])
+            }
 
             initApp().then(() => console.log('App initialized'))
 
